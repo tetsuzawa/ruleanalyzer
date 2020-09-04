@@ -1,4 +1,4 @@
-name: ci
+name: CI
 on:  push
 
 jobs:
@@ -19,6 +19,6 @@ jobs:
         with:
           go-version: ${{ matrix.go-version }}
 
-      - name: Test backend
+      - name: Test
         run: go test ./... -v
 
