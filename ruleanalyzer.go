@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"go/ast"
 	"go/types"
+	"os"
 	"strings"
 
 	"github.com/gostaticanalysis/comment"
@@ -17,19 +18,34 @@ import (
 const rulePrefix = "Rule"
 
 func Run() error {
-	qs, err := analyze()
+	tplConfigs, err := analyze()
 	if err != nil {
 		return err
 	}
-	for _, q := range qs {
-		if err := generate(q); err != nil {
+	for _, tplCfg := range tplConfigs {
+		buf, err := generate(tplCfg)
+		if err != nil {
+			return err
+		}
+		if err = os.Mkdir(strings.ToLower("rule"+tplCfg.Name), 0755); err != nil {
+			return err
+		}
+		f, err := os.Create(strings.ToLower(fmt.Sprintf("rule%s/rule%s.go", tplCfg.Name, tplCfg.Name)))
+		if err != nil {
+			return err
+		}
+		_, err = f.Write(buf)
+		if err != nil {
+			return err
+		}
+		if err := f.Close(); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func analyze() (qs []MilestoneQueue, err error) {
+func analyze() (tplCfgs []*TplConfig, err error) {
 	flag.Parse()
 	mode := packages.NeedName |
 		packages.NeedFiles |
@@ -59,9 +75,6 @@ func analyze() (qs []MilestoneQueue, err error) {
 		ssaPkg.Build()
 		for _, member := range (*ssaPkg).Members {
 
-			// Init queue
-			q := MilestoneQueue{}
-
 			if !types.Identical(member.Type(), &types.Signature{}) {
 				continue
 			}
@@ -73,6 +86,9 @@ func analyze() (qs []MilestoneQueue, err error) {
 			if !ok {
 				continue
 			}
+
+			// Init template config
+			tplCfg := NewTplConfig(strings.TrimPrefix(member.Name(), rulePrefix), MilestoneQueue{})
 
 			// analyze rule
 			var ruleComments []string
@@ -91,7 +107,7 @@ func analyze() (qs []MilestoneQueue, err error) {
 							break
 						}
 					}
-					if len(ruleComments) == len(q) {
+					if len(ruleComments) == tplCfg.Queue.Len() {
 						continue
 					}
 
@@ -102,7 +118,7 @@ func analyze() (qs []MilestoneQueue, err error) {
 							continue
 						}
 						named, ok := p.Elem().(*types.Named)
-						q.Push(named.Obj())
+						tplCfg.Queue.Push(named.Obj())
 					case *ssa.Call:
 						callCommon := instr.Common()
 						if callCommon == nil {
@@ -121,7 +137,7 @@ func analyze() (qs []MilestoneQueue, err error) {
 						} else {
 							fn = callCommon.Method
 						}
-						q.Push(fn)
+						tplCfg.Queue.Push(fn)
 					case *ssa.Defer:
 						callCommon := instr.Common()
 						if callCommon == nil {
@@ -140,22 +156,22 @@ func analyze() (qs []MilestoneQueue, err error) {
 						} else {
 							fn = callCommon.Method
 						}
-						q.Push(fn)
+						tplCfg.Queue.Push(fn)
 
 					default:
 						continue
 					}
 				}
 			}
-			if len(ruleComments) != len(q) {
+			if len(ruleComments) != tplCfg.Queue.Len() {
 				fmt.Println("length of ruleComments and q does not match. it may caused by tool compatibility")
 				continue
 			}
 			// add milestone queue to generate analyzers
-			qs = append(qs, q)
+			tplCfgs = append(tplCfgs, tplCfg)
 		}
 	}
-	return qs, nil
+	return tplCfgs, nil
 }
 
 func hasStepCheck(s string) bool {
