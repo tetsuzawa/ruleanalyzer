@@ -1,0 +1,82 @@
+package ruleanalyzer
+
+const tpl =`package {{ toLower .Name }}
+
+import (
+	"golang.org/x/tools/go/analysis"
+	"golang.org/x/tools/go/analysis/passes/buildssa"
+	"golang.org/x/tools/go/ssa"
+
+	"github.com/gostaticanalysis/analysisutil"
+	"github.com/tetsuzawa/ruleanalyzer"
+)
+
+const doc = "{{ .Name }} detects the rule violation"
+
+var Analyzer = &analysis.Analyzer{
+	Name: "{{ .Name }}",
+	Doc:  doc,
+	Run:  run,
+	Requires: []*analysis.Analyzer{
+		buildssa.Analyzer,
+	},
+}
+
+const ruleName = "{{ .Name }}"
+
+func run(pass *analysis.Pass) (interface{}, error) {
+	funcs := pass.ResultOf[buildssa.Analyzer].(*buildssa.SSA).SrcFuncs
+
+    {{ buildObj .Queue }}
+
+	for _, f := range funcs {
+		mq := ruleanalyzer.MilestoneQueue{
+        {{ range $i, $obj := .Queue}}
+            obj{{ $i }},
+        {{ end }}
+		}
+		initMqLen := mq.Len()
+
+		for _, b := range f.Blocks {
+			for _, instr := range b.Instrs {
+				switch instr := instr.(type) {
+				case *ssa.Alloc:
+					typeName, ok := mq.Head().(*types.TypeName)
+					if !ok {
+						continue
+					}
+					if analysisutil.Alloc(instr, typeName) {
+						mq.Pop()
+						continue
+					}
+				case *ssa.Call:
+					fn, ok := mq.Head().(*types.Func)
+					if !ok {
+						continue
+					}
+					if analysisutil.Func(instr, nil, fn) {
+						mq.Pop()
+						continue
+					}
+				case *ssa.Defer:
+					fn, ok := mq.Head().(*types.Func)
+					if !ok {
+						continue
+					}
+					if analysisutil.Defer(instr, nil, fn) {
+						mq.Pop()
+						continue
+					}
+				default:
+					continue
+				}
+			}
+		}
+		if initMqLen > mq.Len() && mq.Len() > 0 {
+			pass.Reportf(f.Pos(), "this function does not match the rule: %s", ruleName)
+		}
+	}
+	return nil, nil
+}
+
+`
