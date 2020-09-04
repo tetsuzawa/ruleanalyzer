@@ -1,9 +1,14 @@
 package main
 
 import (
+	"fmt"
 	"github.com/tetsuzawa/ruleanalyzer"
-	"golang.org/x/tools/go/analysis/unitchecker"
+	"os"
 )
 
-func main() { unitchecker.Main(ruleanalyzer.Analyzer) }
-
+func main() {
+	if err := ruleanalyzer.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to run ruleanalyzer: %v\n", err)
+		os.Exit(1)
+	}
+}
