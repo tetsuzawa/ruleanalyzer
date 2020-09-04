@@ -7,6 +7,7 @@ import (
 	"go/ast"
 	"go/types"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/gostaticanalysis/comment"
@@ -39,6 +40,10 @@ func Run() error {
 			return err
 		}
 		if err := f.Close(); err != nil {
+			return err
+		}
+		err = exec.Command("goimports", "-w", fmt.Sprintf("rule%s/rule%s.go", tplCfg.Name, tplCfg.Name)).Run()
+		if err != nil {
 			return err
 		}
 	}
