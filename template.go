@@ -45,7 +45,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 					if !ok {
 						continue
 					}
-					if analysisutil.Alloc(instr, typeName) {
+					if ruleanalyzer.Alloc(instr, typeName) {
 						mq.Pop()
 						continue
 					}
@@ -54,7 +54,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 					if !ok {
 						continue
 					}
-					if analysisutil.Func(instr, nil, fn) {
+					if ruleanalyzer.Func(instr, nil, fn) {
 						mq.Pop()
 						continue
 					}
@@ -63,7 +63,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 					if !ok {
 						continue
 					}
-					if analysisutil.Defer(instr, nil, fn) {
+					if ruleanalyzer.Defer(instr, nil, fn) {
 						mq.Pop()
 						continue
 					}

@@ -7,6 +7,7 @@ import (
 	"go/ast"
 	"go/types"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/gostaticanalysis/comment"
@@ -27,10 +28,15 @@ func Run() error {
 		if err != nil {
 			return err
 		}
-		if err = os.Mkdir(strings.ToLower("rule"+tplCfg.Name), 0755); err != nil {
-			return err
+		dirname := strings.ToLower("rule" + tplCfg.Name)
+		if _, err := os.Stat(dirname); os.IsNotExist(err) {
+			err = os.Mkdir(dirname, 0755)
+			if err != nil {
+				return err
+			}
 		}
-		f, err := os.Create(strings.ToLower(fmt.Sprintf("rule%s/rule%s.go", tplCfg.Name, tplCfg.Name)))
+		filename := strings.ToLower(fmt.Sprintf("rule%s/rule%s.go", tplCfg.Name, tplCfg.Name))
+		f, err := os.Create(filename)
 		if err != nil {
 			return err
 		}
@@ -39,6 +45,10 @@ func Run() error {
 			return err
 		}
 		if err := f.Close(); err != nil {
+			return err
+		}
+		err = exec.Command("goimports", "-w", fmt.Sprintf("rule%s/rule%s.go", tplCfg.Name, tplCfg.Name)).Run()
+		if err != nil {
 			return err
 		}
 	}
