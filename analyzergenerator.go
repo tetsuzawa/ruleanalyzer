@@ -14,8 +14,8 @@ func generate(tplCfg *TplConfig) ([]byte, error) {
 		"toLower":  strings.ToLower,
 		"buildObj": buildObj,
 	}
-
-	t, err := template.New("template.go.txt").Funcs(funcMap).Parse(tpl)
+	tplFileName := "template.go.txt"
+	t, err := template.New(tplFileName).Funcs(funcMap).ParseFiles(tplFileName)
 	if err != nil {
 		return nil, err
 	}
